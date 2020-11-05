@@ -1,16 +1,15 @@
 LICENSE = "BSD-2-Clause"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=2307fb28847883ac2b0b110b1c1f36e0"
 
-SRCREV = "d8e4da5e5d4d77cdd705823aa71990276a872ee1"
-
 SRC_URI = " \
-    git://github.com/openrc/openrc.git;nobranch=1 \
-    file://0001-mk-break-up-long-SED_REPLACE-line.patch \
-    file://0002-fix-alternative-conf-and-init-dir-support.patch \
-    file://volatiles.initd \
+    git://github.com/openrc/openrc.git;branch=${KBRANCH} \
 "
 
 S = "${WORKDIR}/git"
+
+# doesn't support Pie flags
+SECURITY_CFLAGS_pn-${PN} = "${SECURITY_NOPIE_CFLAGS}"
+SECURITY_LDFLAGS_pn-${PN} = ""
 
 EXTRA_OEMAKE = " \
     PKG_PREFIX=${prefix} \
@@ -21,8 +20,6 @@ EXTRA_OEMAKE = " \
     INITDIRNAME=$(basename ${OPENRC_INITDIR}) \
     CONFDIRNAME=$(basename ${OPENRC_CONFDIR}) \
 "
-
-inherit openrc
 
 openrc_do_patch() {
     # QA[useless-rpaths]: We don't need an rpath to /lib
@@ -35,7 +32,12 @@ openrc_do_patch() {
     # - Drop netmount from default runlevel, requires umount -O
     #       https://bugs.busybox.net/show_bug.cgi?id=8566
     sed -i \
-        -e 's| keymaps | |' \
+        -e 's|keymaps||' \
+        -e 's|network||' \
+        -e 's|save-keymaps||' \
+        -e 's|save-termencoding||' \
+        -e 's|staticroute||' \
+        -e 's|termencoding||' \
         -e 's|^\(DEFAULT=.*\) netmount|\1|' \
         ${S}/runlevels/Makefile
 }
@@ -44,18 +46,25 @@ do_patch_append() {
     bb.build.exec_func('openrc_do_patch', d)
 }
 
-do_install() {
+do_install_class-target() {
     oe_runmake DESTDIR=${D} install
 
     # Example code that requires perl.
     rm -r ${D}${prefix}/share/${PN}/support/deptree2dot
 
-    openrc_install_script ${WORKDIR}/volatiles.initd
-    openrc_add_to_boot_runlevel ${D} volatiles
+    # Modify rc.conf options
+    sed -i \
+        -e 's|#rc_parallel="NO"|rc_parallel="YES"|' \
+        -e 's|#rc_logger="NO"|rc_logger="YES"|' \
+        ${D}/${sysconfdir}/rc.conf
 }
 
-RDEPENDS_${PN} := " \
-    sysvinit \
+RDEPENDS_${PN}_class-target := " \
+    openrc-sysvinit \
+"
+
+RPROVIDES_${PN} += " \
+    /sbin/openrc-run \
 "
 
 FILES_${PN}-dbg_append := " \

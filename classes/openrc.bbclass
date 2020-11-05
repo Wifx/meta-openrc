@@ -1,166 +1,185 @@
-openrc_install_script() {
-    local svc
-    local path
+# Copyright (c) 2019-2020, Wifx Sàrl <info@wifx.net>
+# All rights reserved.
+# Based on the work of jsbronder, meta-openrc (https://github.com/jsbronder/meta-openrc)
 
-    [ ! -d ${D}${OPENRC_INITDIR} ] && install -d ${D}${OPENRC_INITDIR}
+OPENRC_PACKAGES ?= "${PN}"
+OPENRC_PACKAGES_class-native ?= ""
+OPENRC_PACKAGES_class-nativesdk ?= ""
 
-    for path in $*; do
-        svc=$(basename ${path%\.initd})
-        # Not executable, see do_package_qa_append
-        install -m 644 ${path} ${D}${OPENRC_INITDIR}/${svc}
+inherit openrc-native
+
+# This class will be included in any recipe that supports openrc init scripts,
+# even if openrc is not in DISTRO_FEATURES.  As such don't make any changes
+# directly but check the DISTRO_FEATURES first.
+python __anonymous() {
+    # If the distro features have openrc, inhibit update-rcd
+    # from doing any work so that pure-openrc images don't have redundant init
+    # files.
+    if use_openrc(d):
+        d.setVar("INHIBIT_UPDATERCD_BBCLASS", "1")
+}
+
+openrc_postinst() {
+${OPENRC_NAMES_VAR}
+${OPENRC_RUNLEVELS_VAR}
+for service in ${OPENRC_SERVICE_ESCAPED}; do
+    eval name=\$OPENRC_NAME_$service
+    eval runlevel=\$OPENRC_RUNLEVEL_$service
+    if [ -n "$D" ]; then
+        if [ -e "$D${OPENRC_INITDIR}/$name" ]; then
+            [ ! -d "$D${sysconfdir}/runlevels/$runlevel" ] && install -m 0755 -d "$D${sysconfdir}/runlevels/$runlevel"
+
+            ln -snf "${OPENRC_INITDIR}/$name" "$D${sysconfdir}/runlevels/$runlevel/$name"
+        fi
+    else
+        if [ -e "${OPENRC_INITDIR}/$name" ]; then
+            rc-update -qq add $name $runlevel || :
+        fi
+    fi
+done
+}
+
+openrc_prerm() {
+if [ -z "$D" ]; then
+    ${OPENRC_NAMES_VAR}
+    ${OPENRC_RUNLEVELS_VAR}
+    for service in ${OPENRC_SERVICE_ESCAPED}; do
+        eval name=\$OPENRC_NAME_$service
+        eval runlevel=\$OPENRC_RUNLEVEL_$service
+        if type rc-service >/dev/null 2>/dev/null; then
+            rc-service --ifexists --ifstarted --ifinactive $name stop
+        fi
+        if type rc-update >/dev/null 2>/dev/null; then
+            rc-update -qq del $name $runlevel || :
+        fi
     done
+fi
 }
 
-# Add services to the specified runlevel
-#
-# @param    - Filesystem root
-# @param    - Runlevel name
-# @params   - Services to add to default runlevel
-openrc_add_to_runlevel() {
-    local destdir=$1
-    local runlevel=$2
-    local svc
+PACKAGESPLITFUNCS_prepend = "${@bb.utils.contains('DISTRO_FEATURES', 'openrc', 'openrc_populate_packages ', '', d)}"
+PACKAGESPLITFUNCS_remove_class-nativesdk = "openrc_populate_packages "
 
-    if ! echo ${destdir} | grep -q "^/"; then
-        bbfatal "Destination '${destdir}' does not look like a path"
-    fi
+openrc_populate_packages[vardeps] += "openrc_prerm openrc_postrm openrc_preinst openrc_postinst OPENRC_PACKAGES"
+openrc_populate_packages[vardepsexclude] += "OVERRIDES"
+# Add openrc_populate_packages variables dependencies (OPENRC_PACKAGES, OPENRC_SERVICE_* and OPENRC_RUNLEVEL_*)
+python __anonymous() {
+    openrc_packages = d.getVar('OPENRC_PACKAGES')
 
-    shift
-    shift
-
-    [ ! -d ${destdir}${sysconfdir}/runlevels/${runlevel} ] \
-        && install -d ${destdir}${sysconfdir}/runlevels/${runlevel}
-
-    for svc in $*; do
-        ln -snf ${OPENRC_INITDIR}/${svc} ${destdir}${sysconfdir}/runlevels/${runlevel}
-    done
-
+    # scan for all in OPENRC_SERVICE[]
+    for pkg_openrc in openrc_packages.split():
+        d.appendVar('RDEPENDS_' + pkg_openrc, " openrc")
+        d.appendVarFlag('openrc_populate_packages', 'vardeps', ' OPENRC_SERVICE_' + pkg_openrc)
+        openrc_services = d.getVar('OPENRC_SERVICE_' + pkg_openrc)
+        if openrc_services:
+            for service in openrc_services.split():
+                d.appendVarFlag('openrc_populate_packages', 'vardeps', ' OPENRC_RUNLEVEL_' + service)
 }
 
-# For now, openrc is being provided as an alternative to either systemd or the
-# regualr sysvint in upstream OE.  Openrc init scripts are being added either
-# in the lump openrc-scripts package or by bbappending various upstream
-# recipes.  However, file-rdeps doesn't know that having openrc is completely
-# optional and will pick up on the shebang in each init script.  The real
-# solution is to build off of distro features and update file-rdeps to ignore
-# openrc-run, but until then, this works by adding the executable bit back to
-# openrc scripts after file-rdeps has done its thing.
-python do_package_restore_exec() {
-    pkgdest = d.getVar('PKGDEST')
-    packages = set((d.getVar('PACKAGES') or '').split())
-    initdir = d.getVar('OPENRC_INITDIR')
+python openrc_populate_packages() {
+    import shlex
 
-    for pkg in packages:
-        openrcdir = os.path.realpath(os.path.join(pkgdest, pkg) + initdir)
-        if not os.path.isdir(openrcdir):
-            continue
+    if not use_openrc(d):
+        return
 
-        for f in os.listdir(openrcdir):
-            path = os.path.join(openrcdir, f)
-            if os.path.islink(path) or not os.path.isfile(path):
-                continue
+    def get_package_var(d, var, pkg):
+        val = (d.getVar('%s_%s' % (var, pkg)) or "").strip()
+        if val == "":
+            val = (d.getVar(var) or "").strip()
+        return val
 
-            with open(path, 'r') as fp:
-                shebang = fp.readline().strip()
-            if shebang == '#!/sbin/openrc-run':
-                os.chmod(path, 0o0755)
-}
-addtask do_package_restore_exec after do_package_qa before do_package_write_deb do_package_write_ipk do_package_write_rpm
-do_package_restore_exec[depends] += "virtual/fakeroot-native:do_populate_sysroot"
-do_package_restore_exec[fakeroot] = "1"
+    def openrc_check_package(pkg_openrc):
+        packages = d.getVar('PACKAGES')
+        if not pkg_openrc in packages.split():
+            bb.error('%s defined in OPENRC_PACKAGES does not appear in package list' % pkg_openrc)
 
-# Add services to the default runlevel
-#
-# @param    - Filesystem root
-# @params   - Services to add to default runlevel
-openrc_add_to_default_runlevel() {
-    local dest=$1
-    shift
-    openrc_add_to_runlevel ${dest} default $*
-}
+    def openrc_check_runlevel(pkg_service):
+        runlevel = d.getVar('OPENRC_RUNLEVEL_' + pkg_service)
+        if not runlevel:
+            bb.warn("OpenRC script '%s' runlevel not defined in OPENRC_RUNLEVEL_%s, assuming runlevel 'default'" % (pkg_service, pkg_service))
+            runlevel = 'default'
+        else:
+            runlevel = runlevel.strip()
+        d.setVar('OPENRC_RUNLEVEL_' + pkg_service, runlevel)
+        runlevels = ['sysinit', 'boot', 'default', 'nonetwork', 'shutdown']
+        if runlevel not in runlevels:
+            bb.fatal("OpenRC script '%s' runlevel '%s' is not valid (can be one of '%s')" % (pkg_service, runlevel, "', '".join(runlevels)))
+        return runlevel
 
-# Add services to the boot runlevel
-#
-# @param    - Filesystem root
-# @params   - Services to add to boot runlevel
-openrc_add_to_boot_runlevel() {
-    local dest=$1
-    shift
-    openrc_add_to_runlevel ${dest} boot $*
-}
+    def openrc_generate_package_scripts(pkg):
+        paths_escaped = ' '.join(shlex.quote(s) for s in d.getVar('OPENRC_SERVICE_' + pkg).split())
+        d.setVar('OPENRC_SERVICE_ESCAPED_' + pkg, paths_escaped.replace('-', '_'))
 
-# Stack a runlevel inside another
-#
-# @param    - Filesystem root
-# @param    - Parent runlevel
-# @param    - Runlevel to add to the parent.
-openrc_stack_runlevel() {
-    local destdir=$1
-    local parent=$2
-    local src=$3
+        openrc_names_var = ""
+        openrc_runlevels_var = ""
+        for service in paths_escaped.split():
+            runlevel = openrc_check_runlevel(service)
 
-    if ! echo ${destdir} | grep -q "^/"; then
-        bbfatal "Destination '${destdir}' does not look like a path"
-    fi
+            # Add script name to names variable
+            if openrc_names_var:
+                openrc_names_var += "; "
+            openrc_names_var += 'OPENRC_NAME_' + service.replace('-', '_') + '=' + service
 
-    if [ ! -d ${destdir}${sysconfdir}/runlevels/${src} ]; then
-        bbfatal "Source runlevel '${src}' does not exist"
-    fi
+            # Add script runlevel to runlevels variable
+            if openrc_runlevels_var:
+                openrc_runlevels_var += "; "
+            openrc_runlevels_var += 'OPENRC_RUNLEVEL_' + service.replace('-', '_') + '=' + runlevel
 
-    [ ! -d ${destdir}${sysconfdir}/runlevels/${parent} ] \
-        && install -d ${destdir}${sysconfdir}/runlevels/${parent}
+        # Prepare names and runlevels variables for post install scripts
+        d.setVar('OPENRC_NAMES_VAR_%s' % pkg, openrc_names_var)
+        d.setVar('OPENRC_RUNLEVELS_VAR_%s' % pkg, openrc_runlevels_var)
 
-    ln -snf ../${src} ${destdir}${sysconfdir}/runlevels/${parent}/
-}
+        # Add pkg to the overrides so that it finds the OPENRC_SERVICE_pkg
+        # variable.
+        localdata = d.createCopy()
+        localdata.prependVar("OVERRIDES", pkg + ":")
 
-# Replace the installed inittab with one that uses OpenRC.
-#
-# @param    - Destination dir where /etc/inittab is already installed.
-#             Defaults to ${IMAGE_ROOTFS}.  Note that no consoles are
-#             enabled by default, they must be added by appending to
-#             etc/inittab.
-openrc_replace_inittab() {
-    local destdir=${1:-${IMAGE_ROOTFS}}
+        postinst = d.getVar('pkg_postinst_%s' % pkg)
+        if not postinst:
+            postinst = '#!/bin/sh\n'
+        postinst += localdata.getVar('openrc_postinst')
+        d.setVar('pkg_postinst_%s' % pkg, postinst)
 
-    if [ -z "${destdir}" ]; then
-        bbfatal "No destination specified for inittab replacement and not build an image"
-    elif [ ! -s "${destdir}${sysconfdir}/inittab" ]; then
-        bbwarn "No inittab installed"
-    fi
+        prerm = d.getVar('pkg_prerm_%s' % pkg)
+        if not prerm:
+            prerm = '#!/bin/sh\n'
+        prerm += localdata.getVar('openrc_prerm')
+        d.setVar('pkg_prerm_%s' % pkg, prerm)
 
-    cat <<-EOF > ${destdir}${sysconfdir}/inittab
-		# Default runlevel.
-		id:3:initdefault:
+    # Add files to FILES_* if existent and not already done
+    def openrc_append_file(pkg_openrc, file_append):
+        appended = False
+        if os.path.exists(oe.path.join(d.getVar("D"), file_append)):
+            var_name = "FILES_" + pkg_openrc
+            files = d.getVar(var_name, False) or ""
+            if file_append not in files.split():
+                d.appendVar(var_name, " " + file_append)
+                appended = True
+        return appended
 
-		# System initialization, mount local filesystems, etc.
-		si::sysinit:/sbin/openrc sysinit
+    def openrc_check_services():
+        # searchpaths is only a path but could be a path array
+        searchpaths = [d.getVar("OPENRC_INITDIR"),]
+        openrc_packages = d.getVar('OPENRC_PACKAGES')
 
-		# Further system initialization, brings up the boot runlevel.
-		rc::bootwait:/sbin/openrc boot
+        # scan for all in OPENRC_SERVICE[]
+        for pkg_openrc in openrc_packages.split():
+            for service in get_package_var(d, 'OPENRC_SERVICE', pkg_openrc).split():
+                path_found = ''
+                for path in searchpaths:
+                    if os.path.exists(oe.path.join(d.getVar("D"), path, service)):
+                        path_found = path
+                        break
 
-		l0:0:wait:/sbin/openrc shutdown
-		l0s:0:wait:/sbin/halt -dhp
-		l1:1:wait:/sbin/openrc single
-		l2:2:wait:/sbin/openrc nonetwork
-		l3:3:wait:/sbin/openrc default
-		l4:4:wait:/sbin/openrc default
-		l5:5:wait:/sbin/openrc default
-		l6:6:wait:/sbin/openrc reboot
-		l6r:6:wait:/sbin/reboot -d
-		#z6:6:respawn:/sbin/sulogin
+                if path_found != '':
+                    openrc_append_file(pkg_openrc, oe.path.join(path_found, service))
+                else:
+                    bb.fatal("OpenRC script '%s' defined in OPENRC_SERVICE_%s has not been found, did you forget to install it ?" % (service, pkg_openrc))
 
-		# new-style single-user
-		su0:S:wait:/sbin/openrc single
-		su1:S:wait:/sbin/sulogin
-
-		# What to do at the "Three Finger Salute".
-		ca:12345:ctrlaltdel:/sbin/shutdown -r now
-
-		# TERMINALS
-		# c1:12345:respawn:/sbin/agetty 38400 tty1 linux
-
-		# SERIAL CONSOLES
-		#s0:12345:respawn:/sbin/agetty -8 --autologin root --login-pause -L 115200 ttyS0 xterm
-		#s1:12345:respawn:/sbin/agetty -L 115200 ttyS1 vt100
-	EOF
+     # Run all modifications once when creating package
+    if os.path.exists(d.getVar("D")):
+        for pkg in d.getVar('OPENRC_PACKAGES').split():
+            openrc_check_package(pkg)
+            if d.getVar('OPENRC_SERVICE_' + pkg):
+                openrc_generate_package_scripts(pkg)
+        openrc_check_services()
 }
