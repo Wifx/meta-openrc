@@ -12,27 +12,41 @@ def use_openrc(d):
         return 'true'
     return 'false'
 
+openrc_install_script_for() {
+    local svc=${1}
+    local path=${2}
+
+    [ ! -d ${D}${OPENRC_INITDIR} ] && install -d ${D}${OPENRC_INITDIR}
+
+    install -m 755 ${path} ${D}${OPENRC_INITDIR}/${svc}
+}
+
 openrc_install_script() {
     local svc
     local path
 
-    [ ! -d ${D}${OPENRC_INITDIR} ] && install -d ${D}${OPENRC_INITDIR}
-
     for path in $*; do
         svc=$(basename ${path%\.initd})
-        install -m 755 ${path} ${D}${OPENRC_INITDIR}/${svc}
+        openrc_install_script_for ${svc} ${path}
     done
+}
+
+openrc_install_config_for() {
+    local svc=${1}
+    local path=${2}
+
+    [ ! -d ${D}${OPENRC_CONFDIR} ] && install -d ${D}${OPENRC_CONFDIR}
+
+    install -m 644 ${path} ${D}${OPENRC_CONFDIR}/${svc}
 }
 
 openrc_install_config() {
     local svc
     local path
 
-    [ ! -d ${D}${OPENRC_CONFDIR} ] && install -d ${D}${OPENRC_CONFDIR}
-
     for path in $*; do
         svc=$(basename ${path%\.confd})
-        install -m 644 ${path} ${D}${OPENRC_CONFDIR}/${svc}
+        openrc_install_config_for ${svc} ${path}
     done
 }
 
