@@ -35,5 +35,4 @@ do_install() {
     openrc_install_script ${WORKDIR}/alignment.initd
 }
 
-RDEPENDS_${PN} = "openrc"
 PACKAGE_ARCH = "${MACHINE_ARCH}"

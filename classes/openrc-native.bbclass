@@ -8,17 +8,18 @@ OPENRC_INITDIR ?= "${sysconfdir}/openrc.d"
 RDEPENDS_${PN}_append = " ${@bb.utils.contains('DISTRO_FEATURES','openrc','openrc','',d)}"
 
 def use_openrc(d):
-    if bb.utils.contains('DISTRO_FEATURES', 'openrc', True, False, d):
-        return 'true'
-    return 'false'
+    return bb.utils.contains('DISTRO_FEATURES', 'openrc', True, False, d)
 
 openrc_install_script_for() {
     local svc=${1}
     local path=${2}
 
-    [ ! -d ${D}${OPENRC_INITDIR} ] && install -d ${D}${OPENRC_INITDIR}
+    # Install script only if openrc feature is enabled
+    if [ "${@bb.utils.contains('DISTRO_FEATURES','openrc','openrc','',d)}" = "openrc" ]; then
+        [ ! -d ${D}${OPENRC_INITDIR} ] && install -d ${D}${OPENRC_INITDIR}
 
-    install -m 755 ${path} ${D}${OPENRC_INITDIR}/${svc}
+        install -m 755 ${path} ${D}${OPENRC_INITDIR}/${svc}
+    fi
 }
 
 openrc_install_script() {
@@ -35,9 +36,12 @@ openrc_install_config_for() {
     local svc=${1}
     local path=${2}
 
-    [ ! -d ${D}${OPENRC_CONFDIR} ] && install -d ${D}${OPENRC_CONFDIR}
+    # Install config only if openrc feature is enabled
+    if [ "${@bb.utils.contains('DISTRO_FEATURES','openrc','openrc','',d)}" = "openrc" ]; then
+        [ ! -d ${D}${OPENRC_CONFDIR} ] && install -d ${D}${OPENRC_CONFDIR}
 
-    install -m 644 ${path} ${D}${OPENRC_CONFDIR}/${svc}
+        install -m 644 ${path} ${D}${OPENRC_CONFDIR}/${svc}
+    fi
 }
 
 openrc_install_config() {

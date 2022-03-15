@@ -59,10 +59,13 @@ fi
 PACKAGESPLITFUNCS_prepend = "${@bb.utils.contains('DISTRO_FEATURES', 'openrc', 'openrc_populate_packages ', '', d)}"
 PACKAGESPLITFUNCS_remove_class-nativesdk = "openrc_populate_packages "
 
-openrc_populate_packages[vardeps] += "openrc_prerm openrc_postrm openrc_preinst openrc_postinst OPENRC_PACKAGES"
+openrc_populate_packages[vardeps] += "${@bb.utils.contains('DISTRO_FEATURES', 'openrc', 'openrc_prerm openrc_postrm openrc_preinst openrc_postinst OPENRC_PACKAGES', '', d)}"
 openrc_populate_packages[vardepsexclude] += "OVERRIDES"
 # Add openrc_populate_packages variables dependencies (OPENRC_PACKAGES, OPENRC_SERVICE_* and OPENRC_RUNLEVEL_*)
 python __anonymous() {
+    if not use_openrc(d):
+        return
+        
     openrc_packages = d.getVar('OPENRC_PACKAGES')
 
     # scan for all in OPENRC_SERVICE[]
@@ -175,7 +178,7 @@ python openrc_populate_packages() {
                 else:
                     bb.fatal("OpenRC script '%s' defined in OPENRC_SERVICE_%s has not been found, did you forget to install it ?" % (service, pkg_openrc))
 
-     # Run all modifications once when creating package
+    # Run all modifications once when creating package
     if os.path.exists(d.getVar("D")):
         for pkg in d.getVar('OPENRC_PACKAGES').split():
             openrc_check_package(pkg)

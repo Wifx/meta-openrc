@@ -39,9 +39,11 @@ do_install_append() {
     # Install OpenRC script
     openrc_install_script ${WORKDIR}/run-postinsts.initd
 
-    sed -i -e 's:#SYSCONFDIR#:${sysconfdir}:g' \
-            -e 's:#SBINDIR#:${sbindir}:g' \
-            -e 's:#BASE_BINDIR#:${base_bindir}:g' \
-            -e 's:#LOCALSTATEDIR#:${localstatedir}:g' \
-            ${D}${OPENRC_INITDIR}/run-postinsts
+    if ${@bb.utils.contains('DISTRO_FEATURES', 'openrc', 'true', 'false', d)}; then
+        sed -i -e 's:#SYSCONFDIR#:${sysconfdir}:g' \
+                -e 's:#SBINDIR#:${sbindir}:g' \
+                -e 's:#BASE_BINDIR#:${base_bindir}:g' \
+                -e 's:#LOCALSTATEDIR#:${localstatedir}:g' \
+                ${D}${OPENRC_INITDIR}/run-postinsts
+    fi
 }
