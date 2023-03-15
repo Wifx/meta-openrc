@@ -64,6 +64,14 @@ EOF
         name="getty.$port"
         if [ ! -f ${D}${OPENRC_CONFDIR}/$name ]; then
             install -m 644 ${WORKDIR}/getty.confd ${D}${OPENRC_CONFDIR}/$name
+            # check if port is a gadget serial (ttyGSx)
+            if echo "$port" | grep -q "GS"; then
+                cat <<EOF >>${D}${OPENRC_CONFDIR}/$name
+
+# ttyGSx requires UART over USB through usb-gadget service
+rc_need="usb-gadget"
+EOF
+            fi
         fi
         if [ ! -f ${D}${OPENRC_INITDIR}/$name ] && [ ! -e ${D}${OPENRC_INITDIR}/$name ]; then
             ln -snf ${OPENRC_INITDIR}/getty ${D}${OPENRC_INITDIR}/$name
