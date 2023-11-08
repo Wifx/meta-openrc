@@ -6,7 +6,7 @@ OpenRC support layer for Yocto based on the initial work of [jsbronder/meta-open
 
 In your distro coguration file:
 ```
-DISTRO_FEATURES_append = " openrc"
+DISTRO_FEATURES:append = " openrc"
 VIRTUAL-RUNTIME_init_manager = "openrc-sysvinit"
 VIRTUAL-RUNTIME_initscripts = ""
 ```
@@ -45,7 +45,7 @@ Until then, some examples.
 
 In your package bbappend file:
 ```
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 SRC_URI += " \
     file://<openrc service script>.initd \
     file://<openrc service config>.confd \
@@ -60,7 +60,7 @@ OPENRC_SERVICE_${PN} = "<your package>"
 OPENRC_RUNLEVEL_<your package> = "default"
 
 # Install manually the service script and its configuration file
-do_install_append() {
+do_install:append() {
     # Install OpenRC conf script
     openrc_install_config ${WORKDIR}/<openrc service config>.confd
 
@@ -76,7 +76,7 @@ In this case, the package busybox-syslog which needs to install script for klogd
 
 In your package bbappend file:
 ```
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 SRC_URI += " \
     file://busybox-klogd.initd \
     file://busybox-klogd.confd \
@@ -94,12 +94,12 @@ OPENRC_SERVICE_${PN}-syslog = "busybox-klogd busybox-syslogd"
 OPENRC_RUNLEVEL_busybox-syslogd = "default"
 OPENRC_RUNLEVEL_busybox-klogd = "default"
 
-do_install_append() {
+do_install:append() {
     # Install as usual
 }
 
 # You may need to define to which package of the appended recipe belong the OpenRC files
-FILES_${PN}-syslog += " \
+FILES:${PN}-syslog += " \
     ${OPENRC_CONFDIR}/* \
     ${OPENRC_INITDIR}/* \
 "
@@ -118,7 +118,7 @@ inherit openrc
 # We don't define any service to manage
 OPENRC_SERVICE_${PN} = ""
 
-do_install_append() {
+do_install:append() {
     # But we still want to have the script available on the target
     # (could be enabled later manually)
     openrc_install_script ${WORKDIR}/<script>.initd

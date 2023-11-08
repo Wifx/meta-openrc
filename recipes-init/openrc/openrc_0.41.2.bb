@@ -7,7 +7,7 @@ PR = "0"
 KBRANCH = "0.41.x"
 SRCREV = "882c6bf3bcaba6903d9dc593f8ae41e505b4e4e7"
 
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}/${PN}-${PV}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}/${PN}-${PV}:"
 
 SRC_URI += " \
     file://0001-mk-break-up-long-SED_REPLACE-line.patch \

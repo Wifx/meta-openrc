@@ -3,8 +3,8 @@
 # Based on the work of jsbronder, meta-openrc (https://github.com/jsbronder/meta-openrc)
 
 OPENRC_PACKAGES ?= "${PN}"
-OPENRC_PACKAGES_class-native ?= ""
-OPENRC_PACKAGES_class-nativesdk ?= ""
+OPENRC_PACKAGES:class-native ?= ""
+OPENRC_PACKAGES:class-nativesdk ?= ""
 
 inherit openrc-native
 
@@ -56,12 +56,13 @@ if [ -z "$D" ]; then
 fi
 }
 
-PACKAGESPLITFUNCS_prepend = "${@bb.utils.contains('DISTRO_FEATURES', 'openrc', 'openrc_populate_packages ', '', d)}"
-PACKAGESPLITFUNCS_remove_class-nativesdk = "openrc_populate_packages "
+PACKAGESPLITFUNCS:prepend = "${@bb.utils.contains('DISTRO_FEATURES', 'openrc', 'openrc_populate_packages ', '', d)}"
+PACKAGESPLITFUNCS:remove:class-nativesdk = "openrc_populate_packages "
 
-openrc_populate_packages[vardeps] += "${@bb.utils.contains('DISTRO_FEATURES', 'openrc', 'openrc_prerm openrc_postrm openrc_preinst openrc_postinst OPENRC_PACKAGES', '', d)}"
+openrc_populate_packages[vardeps] += "openrc_prerm openrc_postrm openrc_preinst openrc_postinst OPENRC_PACKAGES"
 openrc_populate_packages[vardepsexclude] += "OVERRIDES"
-# Add openrc_populate_packages variables dependencies (OPENRC_PACKAGES, OPENRC_SERVICE_* and OPENRC_RUNLEVEL_*)
+
+# Add openrc_populate_packages variables dependencies (OPENRC_PACKAGES, OPENRC_SERVICE:* and OPENRC_RUNLEVEL:*)
 python __anonymous() {
     if not use_openrc(d):
         return
@@ -70,12 +71,12 @@ python __anonymous() {
 
     # scan for all in OPENRC_SERVICE[]
     for pkg_openrc in openrc_packages.split():
-        d.appendVar('RDEPENDS_' + pkg_openrc, " openrc")
-        d.appendVarFlag('openrc_populate_packages', 'vardeps', ' OPENRC_SERVICE_' + pkg_openrc)
-        openrc_services = d.getVar('OPENRC_SERVICE_' + pkg_openrc)
+        d.appendVar('RDEPENDS:' + pkg_openrc, " openrc")
+        d.appendVarFlag('openrc_populate_packages', 'vardeps', ' OPENRC_SERVICE:' + pkg_openrc)
+        openrc_services = d.getVar('OPENRC_SERVICE:' + pkg_openrc)
         if openrc_services:
             for service in openrc_services.split():
-                d.appendVarFlag('openrc_populate_packages', 'vardeps', ' OPENRC_RUNLEVEL_' + service)
+                d.appendVarFlag('openrc_populate_packages', 'vardeps', ' OPENRC_RUNLEVEL:' + service)
 }
 
 python openrc_populate_packages() {
@@ -85,7 +86,7 @@ python openrc_populate_packages() {
         return
 
     def get_package_var(d, var, pkg):
-        val = (d.getVar('%s_%s' % (var, pkg)) or "").strip()
+        val = (d.getVar('%s:%s' % (var, pkg)) or "").strip()
         if val == "":
             val = (d.getVar(var) or "").strip()
         return val
@@ -96,21 +97,20 @@ python openrc_populate_packages() {
             bb.error('%s defined in OPENRC_PACKAGES does not appear in package list' % pkg_openrc)
 
     def openrc_check_runlevel(pkg_service):
-        runlevel = d.getVar('OPENRC_RUNLEVEL_' + pkg_service)
+        runlevel = d.getVar('OPENRC_RUNLEVEL:' + pkg_service)
         if not runlevel:
-            bb.warn("OpenRC script '%s' runlevel not defined in OPENRC_RUNLEVEL_%s, assuming runlevel 'default'" % (pkg_service, pkg_service))
             runlevel = 'default'
         else:
             runlevel = runlevel.strip()
-        d.setVar('OPENRC_RUNLEVEL_' + pkg_service, runlevel)
+        d.setVar('OPENRC_RUNLEVEL:' + pkg_service, runlevel)
         runlevels = ['sysinit', 'boot', 'default', 'nonetwork', 'shutdown']
         if runlevel not in runlevels:
             bb.fatal("OpenRC script '%s' runlevel '%s' is not valid (can be one of '%s')" % (pkg_service, runlevel, "', '".join(runlevels)))
         return runlevel
 
     def openrc_generate_package_scripts(pkg):
-        paths_escaped = ' '.join(shlex.quote(s) for s in d.getVar('OPENRC_SERVICE_' + pkg).split())
-        d.setVar('OPENRC_SERVICE_ESCAPED_' + pkg, paths_escaped.replace('-', '_'))
+        paths_escaped = ' '.join(shlex.quote(s) for s in d.getVar('OPENRC_SERVICE:' + pkg).split())
+        d.setVar('OPENRC_SERVICE_ESCAPED:' + pkg, paths_escaped.replace('-', '_'))
 
         openrc_names_var = ""
         openrc_runlevels_var = ""
@@ -128,31 +128,31 @@ python openrc_populate_packages() {
             openrc_runlevels_var += 'OPENRC_RUNLEVEL_' + service.replace('-', '_') + '=' + runlevel
 
         # Prepare names and runlevels variables for post install scripts
-        d.setVar('OPENRC_NAMES_VAR_%s' % pkg, openrc_names_var)
-        d.setVar('OPENRC_RUNLEVELS_VAR_%s' % pkg, openrc_runlevels_var)
+        d.setVar('OPENRC_NAMES_VAR:%s' % pkg, openrc_names_var)
+        d.setVar('OPENRC_RUNLEVELS_VAR:%s' % pkg, openrc_runlevels_var)
 
-        # Add pkg to the overrides so that it finds the OPENRC_SERVICE_pkg
+        # Add pkg to the overrides so that it finds the OPENRC_SERVICE:pkg
         # variable.
         localdata = d.createCopy()
         localdata.prependVar("OVERRIDES", pkg + ":")
 
-        postinst = d.getVar('pkg_postinst_%s' % pkg)
+        postinst = d.getVar('pkg_postinst:%s' % pkg)
         if not postinst:
             postinst = '#!/bin/sh\n'
         postinst += localdata.getVar('openrc_postinst')
-        d.setVar('pkg_postinst_%s' % pkg, postinst)
+        d.setVar('pkg_postinst:%s' % pkg, postinst)
 
-        prerm = d.getVar('pkg_prerm_%s' % pkg)
+        prerm = d.getVar('pkg_prerm:%s' % pkg)
         if not prerm:
             prerm = '#!/bin/sh\n'
         prerm += localdata.getVar('openrc_prerm')
-        d.setVar('pkg_prerm_%s' % pkg, prerm)
+        d.setVar('pkg_prerm:%s' % pkg, prerm)
 
-    # Add files to FILES_* if existent and not already done
+    # Add files to FILES:* if existent and not already done
     def openrc_append_file(pkg_openrc, file_append):
         appended = False
         if os.path.exists(oe.path.join(d.getVar("D"), file_append)):
-            var_name = "FILES_" + pkg_openrc
+            var_name = "FILES:" + pkg_openrc
             files = d.getVar(var_name, False) or ""
             if file_append not in files.split():
                 d.appendVar(var_name, " " + file_append)
@@ -176,13 +176,13 @@ python openrc_populate_packages() {
                 if path_found != '':
                     openrc_append_file(pkg_openrc, oe.path.join(path_found, service))
                 else:
-                    bb.fatal("OpenRC script '%s' defined in OPENRC_SERVICE_%s has not been found, did you forget to install it ?" % (service, pkg_openrc))
+                    bb.fatal("OpenRC script '%s' defined in OPENRC_SERVICE:%s has not been found, did you forget to install it ?" % (service, pkg_openrc))
 
     # Run all modifications once when creating package
     if os.path.exists(d.getVar("D")):
         for pkg in d.getVar('OPENRC_PACKAGES').split():
             openrc_check_package(pkg)
-            if d.getVar('OPENRC_SERVICE_' + pkg):
+            if d.getVar('OPENRC_SERVICE:' + pkg):
                 openrc_generate_package_scripts(pkg)
         openrc_check_services()
 }

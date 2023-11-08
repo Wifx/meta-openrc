@@ -9,8 +9,8 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=751419260aa954499f7abaabaa882bbe \
                     file://COPYRIGHT;endline=15;md5=349c872e0066155e1818b786938876a4"
 PR = "r14"
 
-RDEPENDS_${PN} = "${PN}-inittab"
-RCONFLICTS_${PN} = "sysvinit"
+RDEPENDS:${PN} = "${PN}-inittab"
+RCONFLICTS:${PN} = "sysvinit"
 
 SRC_URI = "${SAVANNAH_GNU_MIRROR}/sysvinit/sysvinit-${PV}.tar.bz2 \
            file://install.patch \
@@ -33,12 +33,12 @@ S = "${WORKDIR}/sysvinit-${PV}"
 B = "${S}/src"
 
 inherit update-alternatives features_check
-DEPENDS_append = " update-rc.d-native base-passwd virtual/crypt"
+DEPENDS:append = " update-rc.d-native base-passwd virtual/crypt"
 do_package_setscene[depends] = "${MLPREFIX}base-passwd:do_populate_sysroot"
 
 REQUIRED_DISTRO_FEATURES = "sysvinit"
 
-ALTERNATIVE_${PN} = "init mountpoint halt reboot runlevel shutdown poweroff last lastb mesg utmpdump wall"
+ALTERNATIVE:${PN} = "init mountpoint halt reboot runlevel shutdown poweroff last lastb mesg utmpdump wall"
 
 ALTERNATIVE_PRIORITY = "250"
 
@@ -54,13 +54,13 @@ ALTERNATIVE_LINK_NAME[runlevel] = "${base_sbindir}/runlevel"
 ALTERNATIVE_LINK_NAME[shutdown] = "${base_sbindir}/shutdown"
 ALTERNATIVE_LINK_NAME[poweroff] = "${base_sbindir}/poweroff"
 
-ALTERNATIVE_sysvinit-pidof = "pidof"
+ALTERNATIVE:sysvinit-pidof = "pidof"
 ALTERNATIVE_LINK_NAME[pidof] = "${base_bindir}/pidof"
 
-ALTERNATIVE_sysvinit-sulogin = "sulogin"
+ALTERNATIVE:sysvinit-sulogin = "sulogin"
 ALTERNATIVE_LINK_NAME[sulogin] = "${base_sbindir}/sulogin"
 
-ALTERNATIVE_${PN}-doc = "mountpoint.1 last.1 lastb.1 mesg.1 wall.1 sulogin.8 utmpdump.1"
+ALTERNATIVE:${PN}-doc = "mountpoint.1 last.1 lastb.1 mesg.1 wall.1 sulogin.8 utmpdump.1"
 
 ALTERNATIVE_LINK_NAME[last.1] = "${mandir}/man1/last.1"
 ALTERNATIVE_LINK_NAME[lastb.1] = "${mandir}/man1/lastb.1"
@@ -71,13 +71,13 @@ ALTERNATIVE_LINK_NAME[utmpdump.1] = "${mandir}/man1/utmpdump.1"
 ALTERNATIVE_LINK_NAME[wall.1] = "${mandir}/man1/wall.1"
 
 PACKAGES =+ "sysvinit-pidof sysvinit-sulogin"
-FILES_${PN} += "${base_sbindir}/* ${base_bindir}/*"
-FILES_sysvinit-pidof = "${base_bindir}/pidof.sysvinit ${base_sbindir}/killall5"
-FILES_sysvinit-sulogin = "${base_sbindir}/sulogin.sysvinit"
+FILES:${PN} += "${base_sbindir}/* ${base_bindir}/*"
+FILES:sysvinit-pidof = "${base_bindir}/pidof.sysvinit ${base_sbindir}/killall5"
+FILES:sysvinit-sulogin = "${base_sbindir}/sulogin.sysvinit"
 
-RDEPENDS_${PN} += "sysvinit-pidof initd-functions"
+RDEPENDS:${PN} += "sysvinit-pidof initd-functions"
 
-CFLAGS_prepend = "-D_GNU_SOURCE "
+CFLAGS:prepend = "-D_GNU_SOURCE "
 export LCRYPT = "-lcrypt"
 EXTRA_OEMAKE += "'base_bindir=${base_bindir}' \
          'base_sbindir=${base_sbindir}' \

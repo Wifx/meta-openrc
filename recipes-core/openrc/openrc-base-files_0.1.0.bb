@@ -3,7 +3,7 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/MIT;md5=0835ad
 
 S="${WORKDIR}"
 
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 SRC_URI += " \
     file://volatiles.initd \
     file://volatiles.confd \
@@ -14,10 +14,10 @@ SRC_URI += " \
 
 inherit openrc
 
-OPENRC_SERVICE_${PN} = "volatiles udev alignment"
-OPENRC_RUNLEVEL_volatiles = "boot"
-OPENRC_RUNLEVEL_udev = "sysinit"
-OPENRC_RUNLEVEL_alignment = "sysinit"
+OPENRC_SERVICE:${PN} = "volatiles udev alignment"
+OPENRC_RUNLEVEL:volatiles = "boot"
+OPENRC_RUNLEVEL:udev = "sysinit"
+OPENRC_RUNLEVEL:alignment = "sysinit"
 
 INHIBIT_DEFAULT_DEPS = "1"
 do_patch[noexec] = "1"

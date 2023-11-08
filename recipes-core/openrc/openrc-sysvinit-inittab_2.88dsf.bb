@@ -1,9 +1,8 @@
 SUMMARY = "Inittab configuration for SysVinit optimized for OpenRC"
-LICENSE = "GPLv2"
-LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/GPL-2.0;md5=801f80980d171dd6425610833a22dbe6"
+LICENSE = "GPL-2.0-only"
+LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/GPL-2.0-only;md5=801f80980d171dd6425610833a22dbe6"
 
 PR = "r0"
-
 
 SRC_URI = " \
     file://inittab \
@@ -17,7 +16,7 @@ S = "${WORKDIR}"
 INHIBIT_DEFAULT_DEPS = "1"
 do_compile[noexec] = "1"
 
-REDPENDS_${PN} += "sed awk"
+RDEPENDS:${PN} += "sed gawk"
 
 do_install() {
     install -d ${D}${sysconfdir}
@@ -85,14 +84,14 @@ EOF
 
 }
 
-pkg_postinst_${PN} () {
+pkg_postinst:${PN} () {
 # run this on host and on target
 if [ "${SERIAL_CONSOLES_CHECK}" = "" ]; then
        exit 0
 fi
 }
 
-pkg_postinst_ontarget_${PN} () {
+pkg_postinst_ontarget:${PN} () {
 # run this on the target
 if [ -e /proc/consoles ]; then
     tmp="${SERIAL_CONSOLES_CHECK}"
@@ -116,10 +115,10 @@ fi
 # Set PACKAGE_ARCH appropriately.
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
-CONFFILES_${PN} = "${sysconfdir}/inittab"
+CONFFILES:${PN} = "${sysconfdir}/inittab"
 
 USE_VT ?= "1"
 SYSVINIT_ENABLED_GETTYS ?= "1"
 
-RCONFLICTS_${PN} = "busybox-inittab sysvinit-inittab"
+RCONFLICTS:${PN} = "busybox-inittab sysvinit-inittab"
 

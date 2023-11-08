@@ -2,14 +2,14 @@ LICENSE = "BSD-2-Clause"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=2307fb28847883ac2b0b110b1c1f36e0"
 
 SRC_URI = " \
-    git://github.com/openrc/openrc.git;branch=${KBRANCH} \
+    git://github.com/openrc/openrc.git;protocol=https;branch=${KBRANCH} \
 "
 
 S = "${WORKDIR}/git"
 
 # doesn't support Pie flags
-SECURITY_CFLAGS_pn-${PN} = "${SECURITY_NOPIE_CFLAGS}"
-SECURITY_LDFLAGS_pn-${PN} = ""
+SECURITY_CFLAGS:pn-${PN} = "${SECURITY_NOPIE_CFLAGS}"
+SECURITY_LDFLAGS:pn-${PN} = ""
 
 EXTRA_OEMAKE = " \
     PKG_PREFIX=${prefix} \
@@ -42,11 +42,11 @@ openrc_do_patch() {
         ${S}/runlevels/Makefile
 }
 
-do_patch_append() {
+do_patch:append() {
     bb.build.exec_func('openrc_do_patch', d)
 }
 
-do_install_class-target() {
+do_install:class-target() {
     oe_runmake DESTDIR=${D} install
 
     # Example code that requires perl.
@@ -59,25 +59,25 @@ do_install_class-target() {
         ${D}/${sysconfdir}/rc.conf
 }
 
-RDEPENDS_${PN}_class-target := " \
+RDEPENDS:${PN}:class-target := " \
     openrc-sysvinit \
 "
 
-RPROVIDES_${PN} += " \
+RPROVIDES:${PN} += " \
     /sbin/openrc-run \
 "
 
-FILES_${PN}-dbg_append := " \
+FILES:${PN}-dbg:append := " \
     ${base_libdir}/rc/bin/.debug \
     ${base_libdir}/rc/sbin/.debug \
 "
 
-FILES_${PN}_append := " \
+FILES:${PN}:append := " \
     ${base_libdir}/rc/* \
 "
 
 inherit update-alternatives
 
 ALTERNATIVE_PRIORITY = "100"
-ALTERNATIVE_${PN} = "start-stop-daemon"
+ALTERNATIVE:${PN} = "start-stop-daemon"
 ALTERNATIVE_LINK_NAME[start-stop-daemon] = "${base_sbindir}/start-stop-daemon"

@@ -1,4 +1,4 @@
-FILESEXTRAPATHS_prepend := "${THISDIR}/${PN}:"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 SRC_URI += " \
     file://run-postinsts.initd \
     file://run-postinsts.confd \
@@ -6,8 +6,8 @@ SRC_URI += " \
 
 inherit openrc
 
-OPENRC_SERVICE_${PN} = "run-postinsts"
-OPENRC_RUNLEVEL_run-postinsts = "sysinit"
+OPENRC_SERVICE:${PN} = "run-postinsts"
+OPENRC_RUNLEVEL:run-postinsts = "sysinit"
 
 remove_path_relative() {
     local oldpath=$(pwd)
@@ -29,7 +29,7 @@ remove_path_relative() {
     cd $oldpath
 }
 
-do_install_append() {
+do_install:append() {
     # Remove standard run-postinsts script executable
     remove_path_relative ${D}${sbindir} ${D}
 

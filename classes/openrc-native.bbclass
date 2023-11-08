@@ -5,7 +5,7 @@
 OPENRC_CONFDIR ?= "${sysconfdir}/conf.d"
 OPENRC_INITDIR ?= "${sysconfdir}/openrc.d"
 
-RDEPENDS_${PN}_append = " ${@bb.utils.contains('DISTRO_FEATURES','openrc','openrc','',d)}"
+RDEPENDS:${PN}:append = " ${@bb.utils.contains('DISTRO_FEATURES','openrc','openrc','',d)}"
 
 def use_openrc(d):
     return bb.utils.contains('DISTRO_FEATURES', 'openrc', True, False, d)
