@@ -3,6 +3,7 @@
 backend_list="rpm deb ipk"
 remove_pi_dir=true
 pm_installed=false
+pi_dir_exists=false
 
 depend()
 {
@@ -34,6 +35,7 @@ _check_installed()
 
         # found postinsts directory
         if [ -d $pi_dir ]; then
+            pi_dir_exists=true
             break
         fi
     done
@@ -65,8 +67,11 @@ _remove_rc()
 
 start()
 {
-    if [ ! -d /etc/*-postinsts ]; then
-        # Removing rc script
+    # check if package manager is installed or postinst dir existings
+    _check_installed
+
+    if ! $pi_dir_exists && ! $pm_installed; then
+        # Nothing to do, removing rc script
         _remove_rc
         return 0
     fi
@@ -85,7 +90,6 @@ start()
         append_log=">>${LOGFILE} 2>&1"
     fi
 
-    _check_installed
     if $pm_installed; then
         case $pm in
             "ipk")
