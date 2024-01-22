@@ -54,10 +54,10 @@ SRC_URI += " \
 inherit openrc
 
 # The package name can be also simply ${PN}
-OPENRC_SERVICE_${PN} = "<your package>"
+OPENRC_SERVICE:${PN} = "<your package>"
 
 # If not given, the OpenRC util will complain but install the scipt in default runlevel anyway.
-OPENRC_RUNLEVEL_<your package> = "default"
+OPENRC_RUNLEVEL:<your package> = "default"
 
 # Install manually the service script and its configuration file
 do_install:append() {
@@ -90,9 +90,9 @@ inherit openrc
 OPENRC_PACKAGES = "${PN}-syslog"
 
 # But which contains multiple scripts
-OPENRC_SERVICE_${PN}-syslog = "busybox-klogd busybox-syslogd"
-OPENRC_RUNLEVEL_busybox-syslogd = "default"
-OPENRC_RUNLEVEL_busybox-klogd = "default"
+OPENRC_SERVICE:${PN}-syslog = "busybox-klogd busybox-syslogd"
+OPENRC_RUNLEVEL:busybox-syslogd = "default"
+OPENRC_RUNLEVEL:busybox-klogd = "default"
 
 do_install:append() {
     # Install as usual
@@ -109,14 +109,14 @@ Note: The variable OPENRC_PACKAGES is automatically defined by the openrc class 
 
 ## Install a script without enabling it in a runlevel
 
-Once the variable OPENRC_SERVICE_* defined in your recipe, the util will look for a OPENRC_RUNLEVEL_<service> value unless you will get a warning and the service will be installed in default runlevel.
+Once the variable OPENRC_SERVICE:* defined in your recipe, the util will look for a OPENRC_RUNLEVEL:<service> value unless you will get a warning and the service will be installed in default runlevel.
 
-If you want to install the script without making it to start at any runlevel, you can simply define the OPENRC_SERVICE_* as empty:
+If you want to install the script without making it to start at any runlevel, you can simply define the OPENRC_SERVICE:* as empty:
 ```
 inherit openrc
 
 # We don't define any service to manage
-OPENRC_SERVICE_${PN} = ""
+OPENRC_SERVICE:${PN} = ""
 
 do_install:append() {
     # But we still want to have the script available on the target
